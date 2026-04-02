@@ -1,3 +1,5 @@
+import { ProxyAgent, setGlobalDispatcher } from 'undici';
+
 export const config = {
     runtime: 'nodejs',
 };
@@ -14,15 +16,21 @@ const USER_AGENTS = [
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
 ];
 
-const getRotatingProxy = () => {
+const getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+
+// Initialize proxy globally
+const getProxyAgent = () => {
     const proxyDomain = process.env.PROXY_DOMAIN || 'p.webshare.io';
     const proxyPort = process.env.PROXY_PORT || '80';
     const proxyUsername = process.env.PROXY_USERNAME || 'cklymqsg-rotate';
     const proxyPassword = process.env.PROXY_PASSWORD || '0xn9q3p3bo1t';
-    return `http://${proxyUsername}:${proxyPassword}@${proxyDomain}:${proxyPort}`;
+    const proxyUrl = `http://${proxyUsername}:${proxyPassword}@${proxyDomain}:${proxyPort}`;
+    return new ProxyAgent({ uri: proxyUrl });
 };
 
-const getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+// Set global dispatcher for proxy
+const proxyAgent = getProxyAgent();
+setGlobalDispatcher(proxyAgent);
 
 const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 3) => {
     let lastError: Error | null = null;
