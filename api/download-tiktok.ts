@@ -7,7 +7,6 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// User-Agent rotation for reliability
 const USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -15,7 +14,6 @@ const USER_AGENTS = [
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
 ];
 
-// Rotating proxy configuration (WeShare)
 const getRotatingProxy = () => {
     const proxyDomain = process.env.PROXY_DOMAIN || 'p.webshare.io';
     const proxyPort = process.env.PROXY_PORT || '80';
@@ -34,7 +32,7 @@ const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 3)
             console.log(`Attempt ${attempt + 1}/${maxRetries} - Fetching: ${url}`);
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
 
             const response = await fetch(url, {
                 ...options,
@@ -92,22 +90,31 @@ async function graphqlRequest(query: string, variables: any) {
     }
 }
 
-export default async function handler(req: Request) {
+// Vercel serverless function handler
+module.exports = async function handler(req: any, res: any) {
+    // Handle CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'authorization, x-client-info, apikey, content-type');
+
     if (req.method === 'OPTIONS') {
-        return new Response(null, { headers: corsHeaders });
+        return res.status(200).end();
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        const { url } = await req.json();
+        const { url } = req.body;
 
         console.log('Processing TikTok URL:', url);
 
         if (!url) {
-            throw new Error('URL is required');
+            return res.status(400).json({ error: 'URL is required' });
         }
 
         if (!url.includes('tiktok.com')) {
-            throw new Error('Invalid TikTok URL');
+            return res.status(400).json({ error: 'Invalid TikTok URL' });
         }
 
         // Check cache first
@@ -138,27 +145,18 @@ export default async function handler(req: Request) {
 
         if (cachedData) {
             console.log('Cache hit! Returning cached data');
-            return new Response(
-                JSON.stringify({
-                    no_watermark: cachedData.no_watermark_url,
-                    watermark: cachedData.watermark_url,
-                    music: cachedData.music_url,
-                    title: cachedData.title,
-                    thumbnail: cachedData.thumbnail_url,
-                    author: cachedData.author_name,
-                    authorAvatar: cachedData.author_avatar,
-                    source: 'cache',
-                    downloadUrl: cachedData.no_watermark_url,
-                    filename: `tiktok-${Date.now()}.mp4`,
-                }),
-                {
-                    headers: {
-                        ...corsHeaders,
-                        'Content-Type': 'application/json',
-                        'X-Cache-Hit': 'true',
-                    }
-                }
-            );
+            return res.status(200).json({
+                no_watermark: cachedData.no_watermark_url,
+                watermark: cachedData.watermark_url,
+                music: cachedData.music_url,
+                title: cachedData.title,
+                thumbnail: cachedData.thumbnail_url,
+                author: cachedData.author_name,
+                authorAvatar: cachedData.author_avatar,
+                source: 'cache',
+                downloadUrl: cachedData.no_watermark_url,
+                filename: `tiktok-${Date.now()}.mp4`,
+            });
         }
 
         console.log('Cache miss. Fetching from TikWM API...');
@@ -225,41 +223,23 @@ export default async function handler(req: Request) {
             console.warn("Cache insert failed (likely table missing), ignoring:", e);
         }
 
-        return new Response(
-            JSON.stringify({
-                no_watermark: noWatermarkUrl,
-                watermark: watermarkUrl,
-                music: musicUrl,
-                title: title,
-                thumbnail: thumbnailUrl,
-                author: authorName,
-                authorAvatar: authorAvatar,
-                source: 'tikwm',
-                downloadUrl: noWatermarkUrl,
-                filename: `tiktok-${Date.now()}.mp4`,
-                coverUrl: thumbnailUrl,
-            }),
-            {
-                headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'application/json',
-                    'X-Cache-Hit': 'false',
-                }
-            }
-        );
+        return res.status(200).json({
+            no_watermark: noWatermarkUrl,
+            watermark: watermarkUrl,
+            music: musicUrl,
+            title: title,
+            thumbnail: thumbnailUrl,
+            author: authorName,
+            authorAvatar: authorAvatar,
+            source: 'tikwm',
+            downloadUrl: noWatermarkUrl,
+            filename: `tiktok-${Date.now()}.mp4`,
+            coverUrl: thumbnailUrl,
+        });
     } catch (error) {
         console.error('Error in download-tiktok function:', error);
         const errorMessage = error instanceof Error ? error.message : 'Failed to process video';
 
-        return new Response(
-            JSON.stringify({ error: errorMessage }),
-            {
-                status: 400,
-                headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
+        return res.status(400).json({ error: errorMessage });
     }
 }
