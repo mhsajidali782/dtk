@@ -91,7 +91,7 @@ async function graphqlRequest(query: string, variables: any) {
 }
 
 // Vercel serverless function handler
-module.exports = async function handler(req: any, res: any) {
+export default async function handler(req: any, res: any) {
     // Handle CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'authorization, x-client-info, apikey, content-type');
