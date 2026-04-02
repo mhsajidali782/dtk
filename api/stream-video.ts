@@ -45,14 +45,13 @@ export default async function handler(req: Request) {
             throw new Error('Invalid video URL - must be from TikTok CDN');
         }
 
-        // Use rotating proxy to bypass TikTok detection
-        const proxyUrl = getRotatingProxy();
-        console.log(`Streaming video using proxy: ${proxyUrl}`);
+        console.log(`Streaming video from: ${videoUrl}`);
 
         const videoResponse = await fetch(videoUrl, {
             headers: {
                 'User-Agent': getRandomUserAgent(),
                 'Referer': 'https://www.tiktok.com/',
+                'Accept': '*/*',
             },
         });
 

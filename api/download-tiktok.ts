@@ -163,11 +163,9 @@ export default async function handler(req: Request) {
 
         console.log('Cache miss. Fetching from TikWM API...');
 
-        // Use rotating proxy to bypass TikTok detection
-        const proxyUrl = getRotatingProxy();
         const targetUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(url)}&hd=1`;
 
-        console.log(`Using proxy: ${proxyUrl}`);
+        console.log(`Fetching from: ${targetUrl}`);
 
         const response = await fetchWithRetry(
             targetUrl,
@@ -177,9 +175,8 @@ export default async function handler(req: Request) {
                     'Content-Type': 'application/json',
                     'User-Agent': getRandomUserAgent(),
                     'Referer': 'https://www.tiktok.com/',
+                    'Accept': 'application/json',
                 },
-                // Note: Edge runtime doesn't support proxy directly, but we can use the proxy in the URL
-                // For actual proxy support, we'd need to use a different approach
             }
         );
 
